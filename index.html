@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARTIFICIAL GLACIER MAP // PENCIL 3D ENGINE</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Surový černobílý CAD / Tužkový styl */
+        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap');
+
+        body {
+            font-family: 'Courier Prime', monospace;
+            background-color: #f4f4f0;
+            color: #111111;
+        }
+        .pencil-box {
+            border: 2px solid #111111;
+            background: #ffffff;
+            box-shadow: 4px 4px 0px #111111;
+        }
+        .pencil-header {
+            background-color: #111111;
+            color: #ffffff;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            padding: 6px 10px;
+        }
+        .pencil-cell {
+            border-right: 1px solid #111111;
+            border-bottom: 1px solid #111111;
+        }
+        input[type="range"] {
+            accent-color: #111111;
+            cursor: pointer;
+        }
+        /* Efekt ručně kreslených čar */
+        .sketch-border {
+            border-style: solid;
+            border-width: 2px;
+            border-color: #111111;
+        }
+    </style>
+</head>
+<body class="p-4 max-w-7xl mx-auto">
+
+    <!-- Horní lišta -->
+    <header class="pencil-box p-3 mb-4 flex justify-between items-center bg-white">
+        <div>
+            <h1 class="text-sm font-bold tracking-widest uppercase">[ MAPA UMĚLÝCH LEDOVCŮ // 3D PENCIL SKETCH ]</h1>
+            <p class="text-xs text-gray-700">Topografický wireframe podklad + Hydrostatický model krystalické struktury</p>
+        </div>
+        <div class="text-xs font-mono bg-black text-white px-3 py-1 font-bold">
+            MODE: [SKETCH_3D_MAP]
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        <!-- Levý panel: Ovládání jako technický list -->
+        <div class="space-y-4">
+            <div class="pencil-box p-4">
+                <div class="pencil-header -mx-4 -mt-4 mb-3">1. Výběr lokality (Scale / Region)</div>
+                <label class="block text-xs font-bold mb-1 uppercase">Zvolte území:</label>
+                <select id="locationSelect" class="w-full border-2 border-black p-2 text-xs bg-white font-mono focus:outline-none shadow-[2px_2px_0px_#111]"></select>
+            </div>
+
+            <div class="pencil-box p-4">
+                <div class="pencil-header -mx-4 -mt-4 mb-3">2. Parametry řezu (Inputs)</div>
+                
+                <div class="mb-3">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span>Převýšení (Δh):</span>
+                        <span id="valDeltaH" class="font-mono">150 m</span>
+                    </div>
+                    <input type="range" id="sliderDeltaH" min="50" max="500" value="150" class="w-full">
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span>Teplota terénu:</span>
+                        <span id="valTemp" class="font-mono">-12 °C</span>
+                    </div>
+                    <input type="range" id="sliderTemp" min="-25" max="-2" value="-12" class="w-full">
+                </div>
+
+                <div class="mb-3">
+                    <div class="flex justify-between text-xs font-bold mb-1">
+                        <span>Měřítko mapy (Scale):</span>
+                        <span id="valScale" class="font-mono">1:25 000</span>
+                    </div>
+                    <input type="range" id="sliderScale" min="1" max="5" value="3" class="w-full">
+                </div>
+            </div>
+
+            <div class="pencil-box p-0 overflow-hidden">
+                <div class="pencil-header">3. Výpočtová tabulka (Outputs)</div>
+                <table class="w-full text-xs text-left font-mono">
+                    <tr class="pencil-cell">
+                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Hydro. Tlak</td>
+                        <td id="outPressure" class="p-2 font-bold border-b border-black">14.7 bar</td>
+                    </tr>
+                    <tr class="pencil-cell">
+                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Výška sloupce</td>
+                        <td id="outHeight" class="p-2 border-b border-black">25.0 m</td>
+                    </tr>
+                    <tr class="pencil-cell">
+                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Základna (m²)</td>
+                        <td id="outArea" class="p-2 border-b border-black">1256 m²</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pravá část: 3D Kreslené okno s mapovým podkladem v pozadí -->
+        <div class="lg:col-span-2 pencil-box flex flex-col h-[600px] relative overflow-hidden">
+            <div class="pencil-header flex justify-between items-center">
+                <span>3D PROHLÍŽEČ: Krystal v terénním výřezu (Apple Maps Wireframe Style)</span>
+                <span class="text-[10px] bg-white text-black px-1 font-bold">WIREFRAME PENCIL</span>
+            </div>
+            
+            <!-- Canvas pro 3D -->
+            <div id="canvasContainer" class="flex-grow w-full h-full bg-[#fcfcfc] cursor-crosshair relative"></div>
+            
+            <div class="p-2 border-t-2 border-black bg-white text-[11px] font-mono flex justify-between">
+                <span id="geoInfo">Struktura: Ručně kreslený 3D krystal / Černobílý terén</span>
+                <span class="font-bold">INTERAKTIVNÍ ROTACE [360°]</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const locations = [
+            { name: "1. Ladakh (Himálaj, Indie)", dh: 180, temp: -15, lat: "34.1° N" },
+            { name: "2. Zermatt (Švýcarské Alpy)", dh: 300, temp: -10, lat: "46.0° N" },
+            { name: "3. Huaraz (Cordillera Blanca, Peru)", dh: 280, temp: -9, lat: "9.5° S" },
+            { name: "4. Banff (Skalisté hory, Kanada)", dh: 160, temp: -15, lat: "51.1° N" },
+            { name: "5. Suchá údolí McMurdo (Antarktida)", dh: 350, temp: -28, lat: "77.5° S" }
+        ];
+
+        const select = document.getElementById('locationSelect');
+        locations.forEach((loc, idx) => {
+            const opt = document.createElement('option');
+            opt.value = idx;
+            opt.textContent = loc.name;
+            select.appendChild(opt);
+        });
+
+        const sliderDeltaH = document.getElementById('sliderDeltaH');
+        const sliderTemp = document.getElementById('sliderTemp');
+        const sliderScale = document.getElementById('sliderScale');
+        
+        const valDeltaH = document.getElementById('valDeltaH');
+        const valTemp = document.getElementById('valTemp');
+        const valScale = document.getElementById('valScale');
+
+        const outPressure = document.getElementById('outPressure');
+        const outHeight = document.getElementById('outHeight');
+        const outArea = document.getElementById('outArea');
+        const geoInfo = document.getElementById('geoInfo');
+
+        let currentLocIndex = 0;
+
+        function updateFromSelect() {
+            const loc = locations[currentLocIndex];
+            sliderDeltaH.value = loc.dh;
+            sliderTemp.value = loc.temp;
+            recalculate();
+        }
+
+        select.addEventListener('change', (e) => {
+            currentLocIndex = parseInt(e.target.value);
+            updateFromSelect();
+        });
+
+        [sliderDeltaH, sliderTemp, sliderScale].forEach(s => s.addEventListener('input', recalculate));
+
+        // --- Three.js 3D Scéna s mapovým podkladem a tužkovým stylem ---
+        const container = document.getElementById('canvasContainer');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xfcfcfc);
+
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(30, 25, 35);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        // Osvětlení
+        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const dirLight = new THREE.DirectionalLight(0x000000, 0.4);
+        dirLight.position.set(10, 30, 20);
+        scene.add(dirLight);
+
+        // Vytvoření 3D Mapového podkladu v pozadí (Apple Maps style - černobílý topografický wireframe grid)
+        const mapGroup = new THREE.Group();
+        scene.add(mapGroup);
+
+        function createMapTerrain(scaleVal) {
+            // Vyčištění starého terénu
+            while(mapGroup.children.length > 0) { 
+                mapGroup.remove(mapGroup.children[0]); 
+            }
+
+            const size = 60;
+            const divisions = 20 * scaleVal;
+            
+            // Černobílá silniční / topografická mřížka simulující mapový výřez
+            const gridMat = new THREE.LineBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 });
+            const terrainGeo = new THREE.PlaneGeometry(size, size, divisions, divisions);
+            terrainGeo.rotateX(-Math.PI / 2);
+
+            // Mírná deformace vrcholků do tvaru hor
+            const pos = terrainGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let px = pos.getX(i);
+                let pz = pos.getZ(i);
+                let py = Math.sin(px * 0.1) * Math.cos(pz * 0.1) * (scaleVal * 1.5);
+                pos.setY(i, py);
+            }
+            terrainGeo.computeVertexNormals();
+
+            const terrainWire = new THREE.LineSegments(
+                new THREE.WireframeGeometry(terrainGeo),
+                new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1, transparent: true, opacity: 0.4 })
+            );
+            mapGroup.add(terrainWire);
+        }
+
+        let crystalMesh = null;
+        let crystalWire = null;
+
+        function createIceStupaCrystal(height, radius, segments, tempFactor) {
+            if (crystalMesh) scene.remove(crystalMesh);
+            if (crystalWire) scene.remove(crystalWire);
+
+            // Surový tužkový / papírový materiál (čistě bílý s černými obrysy)
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const geom = new THREE.CylinderGeometry(radius * 0.3, radius, height, segments, 8);
+
+            // Jemná krystalická deformace
+            const pos = geom.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let vx = pos.getX(i);
+                let vy = pos.getY(i);
+                let vz = pos.getZ(i);
+                if (vy > -height/2 && vy < height/2) {
+                    let noise = Math.sin(vx * 4) * Math.cos(vz * 4) * (Math.abs(tempFactor) * 0.04);
+                    pos.setX(i, vx + noise);
+                    pos.setZ(i, vz + noise);
+                }
+            }
+            geom.computeVertexNormals();
+
+            crystalMesh = new THREE.Mesh(geom, mat);
+            crystalMesh.position.y = height / 2;
+            scene.add(crystalMesh);
+
+            // Tužkový obrys (Wireframe černá linka jako kreslená tužkou)
+            const wireMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+            crystalWire = new THREE.LineSegments(new THREE.WireframeGeometry(geom), wireMat);
+            crystalWire.position.y = height / 2;
+            scene.add(crystalWire);
+        }
+
+        function recalculate() {
+            const dh = parseFloat(sliderDeltaH.value);
+            const temp = parseFloat(sliderTemp.value);
+            const scaleVal = parseInt(sliderScale.value);
+
+            valDeltaH.textContent = dh + " m";
+            valTemp.textContent = temp + " °C";
+            valScale.textContent = "1:" + (30000 / scaleVal);
+
+            const pressure = (dh * 0.098).toFixed(1);
+            const calcHeight = (dh * 0.12 * Math.abs(temp) / 10).toFixed(1);
+            const baseRadius = (Math.abs(temp) * 0.5).toFixed(1);
+
+            outPressure.textContent = pressure + " bar";
+            outHeight.textContent = calcHeight + " m";
+            outArea.textContent = Math.round(Math.PI * Math.pow(baseRadius, 2)) + " m²";
+
+            geoInfo.textContent = `Formace: Tužkový 3D krystal [Tlak: ${pressure} bar, Měřítko mapy: 1:${30000/scaleVal}]`;
+
+            createMapTerrain(scaleVal);
+            createIceStupaCrystal(parseFloat(calcHeight) * 0.5, parseFloat(baseRadius) * 0.8, Math.min(Math.max(Math.floor(Math.abs(temp)), 4), 10), temp);
+        }
+
+        updateFromSelect();
+
+        // Pomalá rotace celého světa
+        function animate() {
+            requestAnimationFrame(animate);
+            if (crystalMesh && crystalWire) {
+                crystalMesh.rotation.y += 0.004;
+                crystalWire.rotation.y += 0.004;
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        });
+    </script>
+</body>
+</html>
