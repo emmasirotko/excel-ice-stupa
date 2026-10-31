@@ -1,317 +1,1277 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARTIFICIAL GLACIER MAP // PENCIL 3D ENGINE</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js -->
+    <title>ICE STUPA — ARCHITECTURAL PREDICTIVE SIMULATOR</title>
+    <!-- Three.js and OrbitControls CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        /* Surový černobílý CAD / Tužkový styl */
-        @import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+        :root {
+            --bg-pure: #ffffff;
+            --ink-pure: #000000;
+            --ink-subtle: #666666;
+            --border-light: #e0e0e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
 
         body {
-            font-family: 'Courier Prime', monospace;
-            background-color: #f4f4f0;
-            color: #111111;
-        }
-        .pencil-box {
-            border: 2px solid #111111;
-            background: #ffffff;
-            box-shadow: 4px 4px 0px #111111;
-        }
-        .pencil-header {
-            background-color: #111111;
-            color: #ffffff;
-            font-weight: bold;
-            text-transform: uppercase;
+            background-color: var(--bg-pure);
+            color: var(--ink-pure);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 300;
             font-size: 11px;
+            line-height: 1.4;
+            letter-spacing: 0.03em;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* HEADER */
+        header {
+            padding: 12px 24px;
+            border-bottom: 2px solid var(--ink-pure);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            background: var(--bg-pure);
+            z-index: 100;
+        }
+
+        .header-title h1 {
+            font-size: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .header-title p {
+            font-size: 9.5px;
+            font-weight: 300;
+            color: var(--ink-pure);
+            text-transform: uppercase;
             letter-spacing: 0.1em;
-            padding: 6px 10px;
+            margin-top: 2px;
         }
-        .pencil-cell {
-            border-right: 1px solid #111111;
-            border-bottom: 1px solid #111111;
+
+        /* APP LAYOUT */
+        .app-container {
+            display: grid;
+            grid-template-columns: 310px 1fr 320px;
+            flex: 1;
+            height: calc(100vh - 51px);
         }
-        input[type="range"] {
-            accent-color: #111111;
+
+        @media (max-width: 1100px) {
+            .app-container {
+                grid-template-columns: 280px 1fr;
+            }
+            .right-panel {
+                display: none;
+            }
+        }
+
+        .panel {
+            padding: 16px;
+            border-right: 2px solid var(--ink-pure);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--bg-pure);
+        }
+
+        .right-panel {
+            border-right: none;
+            border-left: 2px solid var(--ink-pure);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--ink-pure);
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 10.5px;
+            letter-spacing: 0.08em;
+        }
+
+        /* WORLD MAP */
+        .map-wrapper {
+            width: 100%;
+            height: 160px;
+            border: 1px solid var(--ink-pure);
+            background: #ffffff;
+            position: relative;
+            margin-bottom: 6px;
+        }
+
+        canvas#mapCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
             cursor: pointer;
         }
-        /* Efekt ručně kreslených čar */
-        .sketch-border {
-            border-style: solid;
-            border-width: 2px;
-            border-color: #111111;
+
+        select.site-select {
+            width: 100%;
+            padding: 6px 8px;
+            background: var(--bg-pure);
+            border: 1px solid var(--ink-pure);
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 11px;
+            font-weight: 300;
+            color: var(--ink-pure);
+            cursor: pointer;
+            outline: none;
+            border-radius: 0;
+        }
+
+        /* CONTROLS */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .control-label span.val {
+            font-weight: 700;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 3px;
+            background: #cccccc;
+            outline: none;
+            border: 1px solid var(--ink-pure);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--ink-pure);
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        /* VIEWPORT */
+        .viewport-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        canvas#simCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .viewport-tools {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            display: flex;
+            gap: 4px;
+            background: #ffffff;
+            padding: 3px;
+            border: 1px solid var(--ink-pure);
+            z-index: 10;
+        }
+
+        .btn-mini {
+            background: transparent;
+            border: 1px solid var(--ink-pure);
+            color: var(--ink-pure);
+            padding: 3px 7px;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 9.5px;
+            font-weight: 500;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .btn-mini:hover {
+            background: var(--ink-pure);
+            color: var(--bg-pure);
+        }
+
+        .viewport-status {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: #ffffff;
+            padding: 6px 10px;
+            border: 1px solid var(--ink-pure);
+            pointer-events: none;
+            line-height: 1.4;
+        }
+
+        .phase-indicator {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            background: #000000;
+            color: #ffffff;
+            padding: 5px 8px;
+            border: 1px solid var(--ink-pure);
+            z-index: 10;
+            transition: background-color 0.3s ease;
+        }
+
+        /* TABLES & METRICS */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10.5px;
+        }
+
+        .data-table tr {
+            border-bottom: 1px dashed var(--ink-pure);
+        }
+
+        .data-table td {
+            padding: 5px 0;
+        }
+
+        .data-table td.val {
+            text-align: right;
+            font-weight: 700;
+        }
+
+        .metric-card {
+            border: 1px solid var(--ink-pure);
+            padding: 9px 11px;
+            background: #ffffff;
+        }
+
+        .metric-title {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 2px;
+        }
+
+        .metric-val {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .divider {
+            border-top: 1px solid var(--ink-pure);
+            margin: 6px 0;
+        }
+
+        .formula-box {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px;
+            background: #f4f4f4;
+            padding: 7px 9px;
+            border-left: 2px solid var(--ink-pure);
+            line-height: 1.4;
+            margin-top: 4px;
         }
     </style>
 </head>
-<body class="p-4 max-w-7xl mx-auto">
+<body>
 
-    <!-- Horní lišta -->
-    <header class="pencil-box p-3 mb-4 flex justify-between items-center bg-white">
-        <div>
-            <h1 class="text-sm font-bold tracking-widest uppercase">[ MAPA UMĚLÝCH LEDOVCŮ // 3D PENCIL SKETCH ]</h1>
-            <p class="text-xs text-gray-700">Topografický wireframe podklad + Hydrostatický model krystalické struktury</p>
+    <header>
+        <div class="header-title">
+            <h1>ICE STUPA ARCHITECTURAL SIMULATOR</h1>
+            <p>PREDICTIVE THERMODYNAMIC & MORPHOLOGICAL ENGINE</p>
         </div>
-        <div class="text-xs font-mono bg-black text-white px-3 py-1 font-bold">
-            MODE: [SKETCH_3D_MAP]
-        </div>
+        <div style="font-size: 14px; font-weight: 700;">§2</div>
     </header>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="app-container">
         
-        <!-- Levý panel: Ovládání jako technický list -->
-        <div class="space-y-4">
-            <div class="pencil-box p-4">
-                <div class="pencil-header -mx-4 -mt-4 mb-3">1. Výběr lokality (Scale / Region)</div>
-                <label class="block text-xs font-bold mb-1 uppercase">Zvolte území:</label>
-                <select id="locationSelect" class="w-full border-2 border-black p-2 text-xs bg-white font-mono focus:outline-none shadow-[2px_2px_0px_#111]"></select>
+        <!-- LEFT PANEL: SITE & CLIMATE -->
+        <div class="panel">
+            <div>
+                <div class="section-header">
+                    <span>Global Sites Atlas (15)</span>
+                </div>
+                <div class="map-wrapper">
+                    <canvas id="mapCanvas"></canvas>
+                </div>
+                <select id="siteSelect" class="site-select" onchange="onSiteChange(this.value)"></select>
             </div>
 
-            <div class="pencil-box p-4">
-                <div class="pencil-header -mx-4 -mt-4 mb-3">2. Parametry řezu (Inputs)</div>
-                
-                <div class="mb-3">
-                    <div class="flex justify-between text-xs font-bold mb-1">
-                        <span>Převýšení (Δh):</span>
-                        <span id="valDeltaH" class="font-mono">150 m</span>
-                    </div>
-                    <input type="range" id="sliderDeltaH" min="50" max="500" value="150" class="w-full">
+            <div class="divider"></div>
+
+            <div>
+                <div class="section-header">
+                    <span>Climate Parameters</span>
                 </div>
 
-                <div class="mb-3">
-                    <div class="flex justify-between text-xs font-bold mb-1">
-                        <span>Teplota terénu:</span>
-                        <span id="valTemp" class="font-mono">-12 °C</span>
+                <div class="control-group" style="margin-bottom: 10px;">
+                    <div class="control-label">
+                        <span>Seasonal Month</span>
+                        <span class="val" id="monthVal">JAN (Freeze)</span>
                     </div>
-                    <input type="range" id="sliderTemp" min="-25" max="-2" value="-12" class="w-full">
+                    <input type="range" id="monthSlider" min="1" max="12" step="1" value="1" oninput="onMonthChange()">
                 </div>
 
-                <div class="mb-3">
-                    <div class="flex justify-between text-xs font-bold mb-1">
-                        <span>Měřítko mapy (Scale):</span>
-                        <span id="valScale" class="font-mono">1:25 000</span>
+                <div class="control-group" style="margin-bottom: 10px;">
+                    <div class="control-label">
+                        <span>Ambient Temp (T)</span>
+                        <span class="val" id="tempVal">-8.6 °C</span>
                     </div>
-                    <input type="range" id="sliderScale" min="1" max="5" value="3" class="w-full">
+                    <input type="range" id="tempSlider" min="-30" max="25" step="0.5" value="-8.6" oninput="onParamChange()">
+                </div>
+
+                <div class="control-group" style="margin-bottom: 10px;">
+                    <div class="control-label">
+                        <span>Pipe Head (Δh)</span>
+                        <span class="val" id="headVal">180 m</span>
+                    </div>
+                    <input type="range" id="headSlider" min="30" max="400" step="5" value="180" oninput="onParamChange()">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Wind Velocity (v)</span>
+                        <span class="val" id="windVal">14 km/h</span>
+                    </div>
+                    <input type="range" id="windSlider" min="2" max="60" step="1" value="14" oninput="onParamChange()">
                 </div>
             </div>
 
-            <div class="pencil-box p-0 overflow-hidden">
-                <div class="pencil-header">3. Výpočtová tabulka (Outputs)</div>
-                <table class="w-full text-xs text-left font-mono">
-                    <tr class="pencil-cell">
-                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Hydro. Tlak</td>
-                        <td id="outPressure" class="p-2 font-bold border-b border-black">14.7 bar</td>
-                    </tr>
-                    <tr class="pencil-cell">
-                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Výška sloupce</td>
-                        <td id="outHeight" class="p-2 border-b border-black">25.0 m</td>
-                    </tr>
-                    <tr class="pencil-cell">
-                        <td class="p-2 bg-gray-100 font-bold border-b border-black">Základna (m²)</td>
-                        <td id="outArea" class="p-2 border-b border-black">1256 m²</td>
-                    </tr>
+            <div class="divider"></div>
+
+            <div>
+                <div class="section-header">
+                    <span>Microclimate Profile</span>
+                </div>
+                <table class="data-table">
+                    <tr><td>Site Name</td><td class="val" id="mSiteName">Leh, Ladakh</td></tr>
+                    <tr><td>Elevation</td><td class="val" id="mElevation">3,500 m</td></tr>
+                    <tr><td>Topography Type</td><td class="val" id="mTopo">Plateau Valley</td></tr>
+                    <tr><td>Humidity / Solar</td><td class="val" id="mHumSol">28% / 6.2 kWh</td></tr>
                 </table>
             </div>
         </div>
 
-        <!-- Pravá část: 3D Kreslené okno s mapovým podkladem v pozadí -->
-        <div class="lg:col-span-2 pencil-box flex flex-col h-[600px] relative overflow-hidden">
-            <div class="pencil-header flex justify-between items-center">
-                <span>3D PROHLÍŽEČ: Krystal v terénním výřezu (Apple Maps Wireframe Style)</span>
-                <span class="text-[10px] bg-white text-black px-1 font-bold">WIREFRAME PENCIL</span>
+        <!-- CENTER VIEWPORT -->
+        <div class="viewport-container">
+            <div class="phase-indicator" id="phaseIndicatorBadge">PHASE: FREEZING ACCUMULATION</div>
+            <div class="viewport-tools">
+                <button class="btn-mini" onclick="zoomIn()">+</button>
+                <button class="btn-mini" onclick="zoomOut()">-</button>
+                <button class="btn-mini" id="rotBtn" onclick="toggleRotation()">ROT: ON</button>
+                <button class="btn-mini" onclick="resetView()">RESET</button>
             </div>
-            
-            <!-- Canvas pro 3D -->
-            <div id="canvasContainer" class="flex-grow w-full h-full bg-[#fcfcfc] cursor-crosshair relative"></div>
-            
-            <div class="p-2 border-t-2 border-black bg-white text-[11px] font-mono flex justify-between">
-                <span id="geoInfo">Struktura: Ručně kreslený 3D krystal / Černobílý terén</span>
-                <span class="font-bold">INTERAKTIVNÍ ROTACE [360°]</span>
+
+            <div class="viewport-status" id="viewportTag">
+                PREDICTED FORM: 1. HIGH-PLATEAU CRYSTALLINE SPIRE<br>
+                TERRAIN: PLATEAU VALLEY | DYNAMICS: 100% FREEZING
+            </div>
+
+            <canvas id="simCanvas"></canvas>
+        </div>
+
+        <!-- RIGHT PANEL: HARVESTING & GEOMETRY -->
+        <div class="panel right-panel">
+            <div>
+                <div class="section-header">
+                    <span>Water Yield</span>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">Harvestable Meltwater Yield</div>
+                    <div class="metric-val" id="hWaterVal">1,842,000 L</div>
+                    <div style="font-size: 9.5px; font-weight: 300; margin-top: 2px;" id="hWaterM3">1,842 m³ equivalent</div>
+                </div>
+
+                <div class="metric-card" style="margin-top: 8px;">
+                    <div class="metric-title">Capture Efficiency</div>
+                    <div class="metric-val" id="hEfficiencyVal">88.4 %</div>
+                    <div style="font-size: 9.5px; font-weight: 300; margin-top: 2px;">Sprayed vs Stored Ice</div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div>
+                <div class="section-header">
+                    <span>Stupa Geometry</span>
+                </div>
+
+                <table class="data-table">
+                    <tr><td>Stupa Height (H)</td><td class="val" id="mHeight">24.2 m</td></tr>
+                    <tr><td>Base Diameter (D)</td><td class="val" id="mDiameter">38.6 m</td></tr>
+                    <tr><td>Aspect Ratio (H/R)</td><td class="val" id="mAspect">1.25</td></tr>
+                    <tr><td>Stored Ice Mass</td><td class="val" id="mIceMass">2,085 Tons</td></tr>
+                    <tr><td>Surface Area</td><td class="val" id="mSurfaceArea">1,420 m²</td></tr>
+                </table>
+            </div>
+
+            <div class="divider"></div>
+
+            <div>
+                <div class="section-header">
+                    <span>Morphological & Phase Analysis</span>
+                </div>
+                <div class="formula-box" id="morphologyDescBox">
+                    MORPHOLOGY ID #1: High-Plateau Crystalline Spire.<br>
+                    State: Freezing Accumulation (Sub-zero laminar accretion).
+                </div>
             </div>
         </div>
 
     </div>
 
     <script>
-        const locations = [
-            { name: "1. Ladakh (Himálaj, Indie)", dh: 180, temp: -15, lat: "34.1° N" },
-            { name: "2. Zermatt (Švýcarské Alpy)", dh: 300, temp: -10, lat: "46.0° N" },
-            { name: "3. Huaraz (Cordillera Blanca, Peru)", dh: 280, temp: -9, lat: "9.5° S" },
-            { name: "4. Banff (Skalisté hory, Kanada)", dh: 160, temp: -15, lat: "51.1° N" },
-            { name: "5. Suchá údolí McMurdo (Antarktida)", dh: 350, temp: -28, lat: "77.5° S" }
+        // 15 GLOBAL SITES ATLAS DATASET
+        const SITES = [
+            { id: 'leh', name: '1. Leh, Ladakh (India)', lat: 34.15, lon: 77.57, elev: 3500, head: 180, wind: 14, hum: 28, solar: 6.2, topo: 'Plateau Valley', monthlyTemps: [-8.6, -5.8, -0.3, 5.3, 9.8, 13.7, 17.4, 16.8, 12.9, 6.4, 0.3, -5.1] },
+            { id: 'zermatt', name: '2. Zermatt (Swiss Alps)', lat: 45.97, lon: 7.74, elev: 2100, head: 210, wind: 18, hum: 45, solar: 5.1, topo: 'Alpine Jagged Peaks', monthlyTemps: [-4.8, -4.6, -2.0, 1.7, 4.8, 10.4, 13.5, 13.3, 9.6, 4.5, -0.9, -3.5] },
+            { id: 'huaraz', name: '3. Huaraz (Cordillera Blanca)', lat: -9.52, lon: -77.52, elev: 3050, head: 140, wind: 10, hum: 52, solar: 6.8, topo: 'Glacial Moraine', monthlyTemps: [1.2, 1.0, 1.1, 1.5, 1.8, 2.2, 2.5, 2.8, 2.4, 1.9, 1.5, 1.3] },
+            { id: 'reykjavik', name: '4. Reykjavik (Iceland)', lat: 64.14, lon: -21.94, elev: 120, head: 90, wind: 28, hum: 75, solar: 3.2, topo: 'Volcanic Ridge Basin', monthlyTemps: [-0.5, -0.4, 0.5, 2.9, 6.3, 9.5, 11.2, 10.6, 7.7, 4.1, 1.1, -0.2] },
+            { id: 'almaty', name: '5. Almaty (Tian Shan)', lat: 43.22, lon: 76.85, elev: 2300, head: 160, wind: 12, hum: 38, solar: 5.8, topo: 'Steep Foothill Ridge', monthlyTemps: [-7.2, -5.5, 0.2, 7.5, 12.8, 17.2, 20.1, 19.4, 14.2, 7.1, 0.1, -4.8] },
+            { id: 'banff', name: '6. Banff (Canadian Rockies)', lat: 51.17, lon: -115.57, elev: 1400, head: 240, wind: 16, hum: 50, solar: 4.5, topo: 'U-Shaped Valley', monthlyTemps: [-10.4, -7.5, -2.2, 3.1, 8.2, 12.5, 16.1, 15.4, 10.2, 3.8, -4.1, -9.2] },
+            { id: 'everest', name: '7. Namche Bazaar, Everest', lat: 27.80, lon: 86.71, elev: 3440, head: 320, wind: 24, hum: 32, solar: 6.6, topo: 'High Himalayan Gorge', monthlyTemps: [-11.2, -9.5, -4.2, 2.1, 6.2, 10.1, 11.8, 11.2, 7.8, 2.1, -4.2, -9.8] },
+            { id: 'nagano', name: '8. Nagano (Japan Alps)', lat: 36.65, lon: 138.18, elev: 1100, head: 130, wind: 15, hum: 68, solar: 4.2, topo: 'Snow Basin Terraces', monthlyTemps: [-3.0, -2.1, 1.5, 8.2, 13.5, 17.8, 21.5, 20.8, 15.5, 9.0, 3.2, -1.2] },
+            { id: 'gulmarg', name: '9. Gulmarg (Kashmir)', lat: 34.05, lon: 74.38, elev: 2650, head: 200, wind: 16, hum: 55, solar: 5.4, topo: 'Alpine Bowl Meadow', monthlyTemps: [-6.5, -5.0, 0.2, 6.1, 11.2, 15.5, 18.2, 17.5, 13.1, 7.0, 0.5, -4.8] },
+            { id: 'cortina', name: '10. Cortina d’Ampezzo', lat: 46.54, lon: 12.13, elev: 1224, head: 175, wind: 12, hum: 58, solar: 4.8, topo: 'Limestone Pinnacle Base', monthlyTemps: [-4.2, -2.5, 1.8, 6.2, 11.1, 15.0, 17.2, 16.5, 12.1, 6.8, 0.5, -3.2] },
+            { id: 'bariloche', name: '11. Bariloche (Patagonia)', lat: -41.13, lon: -71.31, elev: 850, head: 130, wind: 22, hum: 55, solar: 5.2, topo: 'Lacustrine Moraine', monthlyTemps: [17.5, 17.1, 14.0, 9.5, 5.5, 2.8, 2.1, 3.5, 6.8, 10.5, 13.8, 16.2] },
+            { id: 'ushuaia', name: '12. Ushuaia (Tierra del Fuego)', lat: -54.80, lon: -68.30, elev: 30, head: 80, wind: 34, hum: 78, solar: 3.1, topo: 'Subpolar Coastal Ridge', monthlyTemps: [9.5, 9.2, 7.8, 5.2, 2.8, 0.5, -0.2, 0.8, 2.5, 5.1, 7.2, 8.8] },
+            { id: 'gulmit', name: '13. Gulmit (Hunza Valley)', lat: 36.42, lon: 74.88, elev: 2400, head: 250, wind: 15, hum: 35, solar: 6.1, topo: 'Arid Gorge Terrace', monthlyTemps: [-5.2, -3.8, 2.1, 9.2, 14.5, 19.2, 22.1, 21.2, 16.1, 9.0, 1.8, -3.5] },
+            { id: 'kenya', name: '14. Mount Kenya', lat: -0.15, lon: 37.30, elev: 4300, head: 350, wind: 18, hum: 40, solar: 7.2, topo: 'Equatorial Volcanic Cone', monthlyTemps: [2.1, 2.5, 2.8, 3.0, 2.5, 1.8, 1.2, 1.5, 2.0, 2.6, 2.4, 2.2] },
+            { id: 'quito', name: '15. Quito (Andes Highlands)', lat: -0.18, lon: -78.46, elev: 2850, head: 190, wind: 11, hum: 70, solar: 5.9, topo: 'Highland Inter-Andean Valley', monthlyTemps: [13.2, 13.5, 13.4, 13.6, 13.5, 13.2, 13.1, 13.4, 13.6, 13.5, 13.4, 13.3] }
         ];
 
-        const select = document.getElementById('locationSelect');
-        locations.forEach((loc, idx) => {
-            const opt = document.createElement('option');
-            opt.value = idx;
-            opt.textContent = loc.name;
-            select.appendChild(opt);
-        });
+        let currentSite = SITES[0];
 
-        const sliderDeltaH = document.getElementById('sliderDeltaH');
-        const sliderTemp = document.getElementById('sliderTemp');
-        const sliderScale = document.getElementById('sliderScale');
-        
-        const valDeltaH = document.getElementById('valDeltaH');
-        const valTemp = document.getElementById('valTemp');
-        const valScale = document.getElementById('valScale');
+        // 2D MAP CANVAS
+        const mapCanvas = document.getElementById('mapCanvas');
+        const mapCtx = mapCanvas.getContext('2d');
 
-        const outPressure = document.getElementById('outPressure');
-        const outHeight = document.getElementById('outHeight');
-        const outArea = document.getElementById('outArea');
-        const geoInfo = document.getElementById('geoInfo');
+        function initMap() {
+            const rect = mapCanvas.getBoundingClientRect();
+            mapCanvas.width = rect.width * window.devicePixelRatio;
+            mapCanvas.height = rect.height * window.devicePixelRatio;
+            mapCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawMap();
 
-        let currentLocIndex = 0;
+            mapCanvas.addEventListener('click', (e) => {
+                const r = mapCanvas.getBoundingClientRect();
+                const clickX = e.clientX - r.left;
+                const clickY = e.clientY - r.top;
 
-        function updateFromSelect() {
-            const loc = locations[currentLocIndex];
-            sliderDeltaH.value = loc.dh;
-            sliderTemp.value = loc.temp;
+                let minDist = 9999;
+                let sel = null;
+
+                SITES.forEach(s => {
+                    const pt = latLonToMap(s.lat, s.lon, r.width, r.height);
+                    const d = Math.hypot(pt.x - clickX, pt.y - clickY);
+                    if (d < minDist) {
+                        minDist = d;
+                        sel = s;
+                    }
+                });
+
+                if (sel && minDist < 35) {
+                    document.getElementById('siteSelect').value = sel.id;
+                    onSiteChange(sel.id);
+                }
+            });
+        }
+
+        function latLonToMap(lat, lon, width, height) {
+            const x = (lon + 180) * (width / 360);
+            const y = (90 - lat) * (height / 180);
+            return { x, y };
+        }
+
+        function drawMap() {
+            const r = mapCanvas.getBoundingClientRect();
+            const w = r.width;
+            const h = r.height;
+
+            mapCtx.clearRect(0, 0, w, h);
+            mapCtx.fillStyle = '#fdfdfd';
+            mapCtx.fillRect(0, 0, w, h);
+
+            // Blueprint grid
+            mapCtx.strokeStyle = '#eaeaea';
+            mapCtx.lineWidth = 0.5;
+            for (let x = 0; x < w; x += 25) {
+                mapCtx.beginPath(); mapCtx.moveTo(x, 0); mapCtx.lineTo(x, h); mapCtx.stroke();
+            }
+            for (let y = 0; y < h; y += 25) {
+                mapCtx.beginPath(); mapCtx.moveTo(0, y); mapCtx.lineTo(w, y); mapCtx.stroke();
+            }
+
+            // Equator & Prime Meridian lines
+            mapCtx.strokeStyle = '#cccccc';
+            mapCtx.setLineDash([2, 2]);
+            mapCtx.beginPath(); mapCtx.moveTo(0, h / 2); mapCtx.lineTo(w, h / 2); mapCtx.stroke();
+            mapCtx.beginPath(); mapCtx.moveTo(w / 2, 0); mapCtx.lineTo(w / 2, h); mapCtx.stroke();
+            mapCtx.setLineDash([]);
+
+            // Minimalist continents outline
+            mapCtx.strokeStyle = '#333333';
+            mapCtx.lineWidth = 1;
+            mapCtx.fillStyle = '#f2f2f2';
+
+            const continents = [
+                [[0.10,0.15],[0.38,0.15],[0.38,0.48],[0.10,0.48]], // N. America
+                [[0.30,0.52],[0.42,0.52],[0.42,0.85],[0.30,0.85]], // S. America
+                [[0.46,0.15],[0.58,0.15],[0.58,0.38],[0.46,0.38]], // Europe
+                [[0.47,0.41],[0.63,0.41],[0.63,0.78],[0.47,0.78]], // Africa
+                [[0.60,0.12],[0.90,0.12],[0.90,0.55],[0.60,0.55]], // Asia
+                [[0.78,0.62],[0.93,0.62],[0.93,0.86],[0.78,0.86]]  // Oceania
+            ];
+
+            continents.forEach(poly => {
+                mapCtx.beginPath();
+                mapCtx.moveTo(poly[0][0] * w, poly[0][1] * h);
+                for(let i=1; i<poly.length; i++) {
+                    mapCtx.lineTo(poly[i][0] * w, poly[i][1] * h);
+                }
+                mapCtx.closePath();
+                mapCtx.fill();
+                mapCtx.stroke();
+            });
+
+            // Plot 15 Sites clearly with interactive pins & numbers
+            SITES.forEach((s, idx) => {
+                const pt = latLonToMap(s.lat, s.lon, w, h);
+                const isSel = (s.id === currentSite.id);
+
+                if (isSel) {
+                    mapCtx.strokeStyle = '#000000';
+                    mapCtx.lineWidth = 2;
+                    mapCtx.beginPath();
+                    mapCtx.arc(pt.x, pt.y, 10, 0, Math.PI * 2);
+                    mapCtx.stroke();
+                }
+
+                mapCtx.fillStyle = isSel ? '#000000' : '#ffffff';
+                mapCtx.strokeStyle = '#000000';
+                mapCtx.lineWidth = 1.5;
+                mapCtx.beginPath();
+                mapCtx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+                mapCtx.fill();
+                mapCtx.stroke();
+
+                mapCtx.fillStyle = isSel ? '#000000' : '#444444';
+                mapCtx.font = `${isSel ? 'bold ' : ''}9.5px "Helvetica Neue", sans-serif`;
+                mapCtx.fillText(idx + 1, pt.x + 8, pt.y + 3);
+            });
+        }
+
+        function populateSiteDropdown() {
+            const sel = document.getElementById('siteSelect');
+            sel.innerHTML = '';
+            SITES.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                sel.appendChild(opt);
+            });
+        }
+
+        function onSiteChange(siteId) {
+            currentSite = SITES.find(s => s.id === siteId) || SITES[0];
+            document.getElementById('headSlider').value = currentSite.head;
+            document.getElementById('windSlider').value = currentSite.wind;
+            onMonthChange();
+            drawMap();
+            buildSiteTerrain();
+        }
+
+        function onMonthChange() {
+            const mIdx = parseInt(document.getElementById('monthSlider').value) - 1;
+            const newTemp = currentSite.monthlyTemps[mIdx];
+            document.getElementById('tempSlider').value = newTemp;
             recalculate();
         }
 
-        select.addEventListener('change', (e) => {
-            currentLocIndex = parseInt(e.target.value);
-            updateFromSelect();
-        });
-
-        [sliderDeltaH, sliderTemp, sliderScale].forEach(s => s.addEventListener('input', recalculate));
-
-        // --- Three.js 3D Scéna s mapovým podkladem a tužkovým stylem ---
-        const container = document.getElementById('canvasContainer');
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xfcfcfc);
-
-        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(30, 25, 35);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        container.appendChild(renderer.domElement);
-
-        // Osvětlení
-        scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-        const dirLight = new THREE.DirectionalLight(0x000000, 0.4);
-        dirLight.position.set(10, 30, 20);
-        scene.add(dirLight);
-
-        // Vytvoření 3D Mapového podkladu v pozadí (Apple Maps style - černobílý topografický wireframe grid)
-        const mapGroup = new THREE.Group();
-        scene.add(mapGroup);
-
-        function createMapTerrain(scaleVal) {
-            // Vyčištění starého terénu
-            while(mapGroup.children.length > 0) { 
-                mapGroup.remove(mapGroup.children[0]); 
-            }
-
-            const size = 60;
-            const divisions = 20 * scaleVal;
-            
-            // Černobílá silniční / topografická mřížka simulující mapový výřez
-            const gridMat = new THREE.LineBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 });
-            const terrainGeo = new THREE.PlaneGeometry(size, size, divisions, divisions);
-            terrainGeo.rotateX(-Math.PI / 2);
-
-            // Mírná deformace vrcholků do tvaru hor
-            const pos = terrainGeo.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                let px = pos.getX(i);
-                let pz = pos.getZ(i);
-                let py = Math.sin(px * 0.1) * Math.cos(pz * 0.1) * (scaleVal * 1.5);
-                pos.setY(i, py);
-            }
-            terrainGeo.computeVertexNormals();
-
-            const terrainWire = new THREE.LineSegments(
-                new THREE.WireframeGeometry(terrainGeo),
-                new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 1, transparent: true, opacity: 0.4 })
-            );
-            mapGroup.add(terrainWire);
+        function onParamChange() {
+            recalculate();
         }
 
-        let crystalMesh = null;
-        let crystalWire = null;
+        // THREE.JS SIMULATION ENGINE
+        let scene, camera, renderer, controls;
+        let terrainPoints, stupaGroup, stupaMesh, stupaWireframe, centralPipeMesh, particlesMesh;
+        let particlePositions, particleVelocities;
+        const PARTICLE_COUNT = 300;
+        let autoRotate = true;
 
-        function createIceStupaCrystal(height, radius, segments, tempFactor) {
-            if (crystalMesh) scene.remove(crystalMesh);
-            if (crystalWire) scene.remove(crystalWire);
+        function init3D() {
+            const container = document.querySelector('.viewport-container');
+            const width = container.clientWidth || 600;
+            const height = container.clientHeight || 500;
 
-            // Surový tužkový / papírový materiál (čistě bílý s černými obrysy)
-            const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-            const geom = new THREE.CylinderGeometry(radius * 0.3, radius, height, segments, 8);
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
 
-            // Jemná krystalická deformace
-            const pos = geom.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                let vx = pos.getX(i);
-                let vy = pos.getY(i);
-                let vz = pos.getZ(i);
-                if (vy > -height/2 && vy < height/2) {
-                    let noise = Math.sin(vx * 4) * Math.cos(vz * 4) * (Math.abs(tempFactor) * 0.04);
-                    pos.setX(i, vx + noise);
-                    pos.setZ(i, vz + noise);
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 2000);
+            camera.position.set(70, 45, 90);
+
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('simCanvas'), antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 10, 0);
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 1.0;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(50, 100, 50);
+            scene.add(dirLight);
+
+            stupaGroup = new THREE.Group();
+            scene.add(stupaGroup);
+
+            initParticles();
+            buildSiteTerrain();
+            recalculate();
+
+            const observer = new ResizeObserver(entries => {
+                for (let entry of entries) {
+                    const w = entry.contentRect.width;
+                    const h = entry.contentRect.height;
+                    if (w > 0 && h > 0 && camera && renderer) {
+                        camera.aspect = w / h;
+                        camera.updateProjectionMatrix();
+                        renderer.setSize(w, h);
+                    }
+                }
+            });
+            observer.observe(container);
+
+            animate();
+        }
+
+        function initParticles() {
+            const geometry = new THREE.BufferGeometry();
+            particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+            particleVelocities = [];
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particlePositions[i * 3] = 0;
+                particlePositions[i * 3 + 1] = -100; // hidden initially
+                particlePositions[i * 3 + 2] = 0;
+                particleVelocities.push({ x: 0, y: 0, z: 0, life: 0 });
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(8, 8, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            const material = new THREE.PointsMaterial({
+                color: 0x111111,
+                size: 1.2,
+                map: texture,
+                transparent: true,
+                alphaTest: 0.1
+            });
+
+            particlesMesh = new THREE.Points(geometry, material);
+            scene.add(particlesMesh);
+        }
+
+        function buildSiteTerrain() {
+            if (terrainPoints) scene.remove(terrainPoints);
+
+            const size = 180;
+            const res = 100;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+
+            const siteType = currentSite.topo;
+
+            for (let i = 0; i < res; i++) {
+                for (let j = 0; j < res; j++) {
+                    const x = (i / res - 0.5) * size;
+                    const z = (j / res - 0.5) * size;
+
+                    const distFromCenter = Math.hypot(x, z);
+                    const t = Math.max(0, Math.min(1, (distFromCenter - 12) / (45 - 12)));
+                    const centerFlatten = t * t * (3 - 2 * t);
+
+                    let y = 0;
+
+                    if (siteType.includes('Alpine') || siteType.includes('Jagged')) {
+                        const n1 = Math.sin(x * 0.08) * Math.cos(z * 0.08) * 22;
+                        const n2 = Math.abs(Math.sin(x * 0.2) * Math.cos(z * 0.2)) * 12;
+                        y = (n1 + n2) * centerFlatten - 4;
+                    } else if (siteType.includes('Volcanic')) {
+                        const crater = Math.sin(distFromCenter * 0.1) * 15;
+                        y = crater * (1 - centerFlatten) + Math.sin(x * 0.05) * 8 - 4;
+                    } else if (siteType.includes('Gorge') || siteType.includes('Himalayan')) {
+                        const gorge = Math.abs(x) * 0.4;
+                        y = (gorge + Math.sin(z * 0.06) * 14) * centerFlatten - 5;
+                    } else {
+                        const n1 = Math.sin(x * 0.03) * Math.cos(z * 0.03) * 12;
+                        const n2 = Math.sin(x * 0.09) * Math.cos(z * 0.09) * 4;
+                        y = (n1 + n2) * centerFlatten - 4;
+                    }
+
+                    positions.push(x, y, z);
                 }
             }
-            geom.computeVertexNormals();
 
-            crystalMesh = new THREE.Mesh(geom, mat);
-            crystalMesh.position.y = height / 2;
-            scene.add(crystalMesh);
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
 
-            // Tužkový obrys (Wireframe černá linka jako kreslená tužkou)
-            const wireMat = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
-            crystalWire = new THREE.LineSegments(new THREE.WireframeGeometry(geom), wireMat);
-            crystalWire.position.y = height / 2;
-            scene.add(crystalWire);
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(8, 8, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            const material = new THREE.PointsMaterial({
+                color: 0x000000,
+                size: 1.4,
+                map: texture,
+                transparent: true,
+                alphaTest: 0.2
+            });
+
+            terrainPoints = new THREE.Points(geometry, material);
+            scene.add(terrainPoints);
+        }
+
+        function updateStupa3D(height, radius, isMelting, windSpeed) {
+            // Remove previous stupa meshes
+            while(stupaGroup.children.length > 0) { 
+                const obj = stupaGroup.children[0];
+                stupaGroup.remove(obj); 
+                if (obj.geometry) obj.geometry.dispose();
+            }
+
+            // Central feeder pipe geometry
+            const pipeGeo = new THREE.CylinderGeometry(0.3, 0.4, height * 1.1, 12);
+            const pipeMat = new THREE.MeshBasicMaterial({ color: isMelting ? 0xcc0000 : 0x000000, wireframe: true });
+            centralPipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+            centralPipeMesh.position.y = (height * 1.1) / 2 - 4;
+            stupaGroup.add(centralPipeMesh);
+
+            // Create cone geometry for the ice stupa body
+            const radialSegments = 32;
+            const heightSegments = 24;
+            const coneGeo = new THREE.ConeGeometry(radius, height, radialSegments, heightSegments);
+            coneGeo.translate(0, height / 2 - 4, 0);
+
+            // Deform vertices for accretion / thermal sagging shape
+            const posAttr = coneGeo.attributes.position;
+            for (let i = 0; i < posAttr.count; i++) {
+                let x = posAttr.getX(i);
+                let y = posAttr.getY(i);
+                let z = posAttr.getZ(i);
+
+                const normY = (y + 4) / Math.max(1, height);
+
+                if (isMelting) {
+                    // Sagging and collapsing structure shape
+                    x += Math.sin(y * 0.8) * 0.6;
+                    z += Math.cos(y * 0.8) * 0.6;
+                    if (y < height * 0.3) {
+                        x *= 1.35;
+                        z *= 1.35;
+                    }
+                } else {
+                    // Natural crystalline accumulation ridges
+                    const angle = Math.atan2(z, x);
+                    const ridge = Math.sin(angle * 6 + y * 0.3) * (1 - normY) * 0.9;
+                    x += Math.cos(angle) * ridge;
+                    z += Math.sin(angle) * ridge;
+
+                    // Wind drift displacement
+                    x += (windSpeed * 0.03) * (1 - normY);
+                }
+
+                posAttr.setXYZ(i, x, y, z);
+            }
+            coneGeo.computeVertexNormals();
+
+            // RED COLOR during melting phase, pristine ICE WHITE/CYAN during freezing
+            const iceColor = isMelting ? 0xe63946 : 0xddf3f5;
+            const wireColor = isMelting ? 0xff0000 : 0x000000;
+
+            const iceMat = new THREE.MeshPhongMaterial({
+                color: iceColor,
+                transparent: true,
+                opacity: isMelting ? 0.85 : 0.75,
+                shininess: isMelting ? 30 : 90,
+                flatShading: true
+            });
+            stupaMesh = new THREE.Mesh(coneGeo, iceMat);
+            stupaGroup.add(stupaMesh);
+
+            // Technical wireframe overlay
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: wireColor,
+                wireframe: true,
+                transparent: true,
+                opacity: isMelting ? 0.6 : 0.35
+            });
+            stupaWireframe = new THREE.Mesh(coneGeo, wireMat);
+            stupaGroup.add(stupaWireframe);
+        }
+
+        function updateParticleSystem(stupaHeight, isMelting, windSpeed) {
+            const pipeTopY = stupaHeight * 1.1 - 4;
+            const positions = particlesMesh.geometry.attributes.position.array;
+
+            if (isMelting) {
+                // FOUNTAIN OFF during melting: hide all particles underground
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    positions[i * 3 + 1] = -500;
+                    particleVelocities[i].life = 0;
+                }
+            } else {
+                // ACTIVE FOUNTAIN SPRAY during freezing phase
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    let p = particleVelocities[i];
+
+                    if (p.life <= 0) {
+                        p.life = 60 + Math.random() * 40;
+                        positions[i * 3] = (Math.random() - 0.5) * 0.5;
+                        positions[i * 3 + 1] = pipeTopY;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+
+                        const angle = Math.random() * Math.PI * 2;
+                        const spread = 0.15 + Math.random() * 0.2;
+                        p.x = Math.cos(angle) * spread + (windSpeed * 0.015);
+                        p.y = 0.4 + Math.random() * 0.3;
+                        p.z = Math.sin(angle) * spread;
+                    } else {
+                        positions[i * 3] += p.x;
+                        positions[i * 3 + 1] += p.y;
+                        positions[i * 3 + 2] += p.z;
+
+                        p.y -= 0.015; // Gravity
+                        p.life--;
+
+                        if (positions[i * 3 + 1] < -4) {
+                            p.life = 0;
+                        }
+                    }
+                }
+            }
+            particlesMesh.geometry.attributes.position.needsUpdate = true;
         }
 
         function recalculate() {
-            const dh = parseFloat(sliderDeltaH.value);
-            const temp = parseFloat(sliderTemp.value);
-            const scaleVal = parseInt(sliderScale.value);
+            const T = parseFloat(document.getElementById('tempSlider').value);
+            const dh = parseFloat(document.getElementById('headSlider').value);
+            const v = parseFloat(document.getElementById('windSlider').value);
+            const month = parseInt(document.getElementById('monthSlider').value);
 
-            valDeltaH.textContent = dh + " m";
-            valTemp.textContent = temp + " °C";
-            valScale.textContent = "1:" + (30000 / scaleVal);
+            document.getElementById('tempVal').textContent = `${T.toFixed(1)} °C`;
+            document.getElementById('headVal').textContent = `${dh} m`;
+            document.getElementById('windVal').textContent = `${v} km/h`;
 
-            const pressure = (dh * 0.098).toFixed(1);
-            const calcHeight = (dh * 0.12 * Math.abs(temp) / 10).toFixed(1);
-            const baseRadius = (Math.abs(temp) * 0.5).toFixed(1);
+            const monthNames = ["JAN (Freeze)", "FEB (Freeze)", "MAR (Accum.)", "APR (Melt)", "MAY (Melt)", "JUN (Decay)", "JUL (Decay)", "AUG (Decay)", "SEP (Melt)", "OCT (Freeze)", "NOV (Freeze)", "DEC (Freeze)"];
+            document.getElementById('monthVal').textContent = monthNames[month - 1];
 
-            outPressure.textContent = pressure + " bar";
-            outHeight.textContent = calcHeight + " m";
-            outArea.textContent = Math.round(Math.PI * Math.pow(baseRadius, 2)) + " m²";
+            document.getElementById('mSiteName').textContent = currentSite.name;
+            document.getElementById('mElevation').textContent = `${currentSite.elev.toLocaleString()} m`;
+            document.getElementById('mTopo').textContent = currentSite.topo;
+            document.getElementById('mHumSol').textContent = `${currentSite.hum}% / ${currentSite.solar} kWh`;
 
-            geoInfo.textContent = `Formace: Tužkový 3D krystal [Tlak: ${pressure} bar, Měřítko mapy: 1:${30000/scaleVal}]`;
+            const isMeltingPhase = (T > 0 || month === 4 || month === 5 || month === 6 || month === 7 || month === 8 || month === 9);
+            const badge = document.getElementById('phaseIndicatorBadge');
+            
+            // Dynamic smooth color interpolation based on temperature
+            let thermalHue = 0;
+            if (T <= -10) thermalHue = 0.0;
+            else if (T <= 0) thermalHue = (T + 10) / 10 * 0.35;
+            else thermalHue = 0.35 + Math.min(1.0, T / 20) * 0.65;
 
-            createMapTerrain(scaleVal);
-            createIceStupaCrystal(parseFloat(calcHeight) * 0.5, parseFloat(baseRadius) * 0.8, Math.min(Math.max(Math.floor(Math.abs(temp)), 4), 10), temp);
+            if (isMeltingPhase) {
+                badge.textContent = `PHASE: THERMAL DECAY & MELTING (${Math.max(0, T).toFixed(1)}°C)`;
+                badge.style.background = '#e63946';
+            } else {
+                badge.textContent = `PHASE: FREEZING ACCUMULATION (${T.toFixed(1)}°C)`;
+                badge.style.background = '#000000';
+            }
+
+            const fountainHeight = (dh * 0.12) * (1 - v * 0.005);
+            let stupaHeight = Math.max(4, fountainHeight * (1 - Math.max(0, T) * 0.08));
+            let stupaRadius = stupaHeight * 0.75;
+
+            if (isMeltingPhase) {
+                const meltDeg = Math.max(1, T > 0 ? T : 2);
+                stupaHeight *= Math.max(0.12, 1 - meltDeg * 0.1);
+                stupaRadius *= Math.max(0.18, 1 - meltDeg * 0.07);
+            }
+
+            const volume = (1 / 3) * Math.PI * Math.pow(stupaRadius, 2) * stupaHeight;
+            const iceMassTons = volume * 0.917;
+            const captureEfficiency = Math.max(15, Math.min(95, (isMeltingPhase ? 25 : 92) - (v * 0.7)));
+            const harvestableWaterLiters = volume * 1000 * (captureEfficiency / 100);
+            const surfaceArea = Math.PI * stupaRadius * (stupaRadius + Math.sqrt(Math.pow(stupaHeight, 2) + Math.pow(stupaRadius, 2)));
+
+            document.getElementById('mHeight').textContent = `${stupaHeight.toFixed(1)} m`;
+            document.getElementById('mDiameter').textContent = `${(stupaRadius * 2).toFixed(1)} m`;
+            document.getElementById('mAspect').textContent = (stupaHeight / stupaRadius).toFixed(2);
+            document.getElementById('mIceMass').textContent = `${Math.round(iceMassTons).toLocaleString()} Tons`;
+            document.getElementById('mSurfaceArea').textContent = `${Math.round(surfaceArea).toLocaleString()} m²`;
+
+            document.getElementById('hWaterVal').textContent = `${Math.round(harvestableWaterLiters).toLocaleString()} L`;
+            document.getElementById('hWaterM3').textContent = `${Math.round(harvestableWaterLiters / 1000).toLocaleString()} m³ equivalent`;
+            document.getElementById('hEfficiencyVal').textContent = `${captureEfficiency.toFixed(1)} %`;
+
+            // 15 DISTINCT EXAGGERATED MORPHOLOGICAL FORMS
+            let morphId = 1;
+            let morphName = "";
+            let morphDesc = "";
+
+            if (!isMeltingPhase) {
+                if (dh > 280 && v < 20) {
+                    morphId = 11; morphName = "11. GRAVITY-DEFYING HIGH-HEAD SPIRE TOWER";
+                    morphDesc = "Extreme hydraulic pressure shoots ice upward into an ultra-slender, soaring tower.";
+                } else if (v > 35 && dh > 180) {
+                    morphId = 2; morphName = "2. EXTREME WIND-SHEARED BENT NEEDLE";
+                    morphDesc = "Heavy gales drastically bend the main ice column along the directional wind vector.";
+                } else if (v > 42) {
+                    morphId = 6; morphName = "6. WIND-BLOWN FLATTENED BLADE";
+                    morphDesc = "Severe storm winds flatten the ice envelope into a highly directional, razor-like ridge.";
+                } else if (dh < 90) {
+                    morphId = 5; morphName = "5. LOW-PRESSURE BROAD FLATTENED DOME";
+                    morphDesc = "Low nozzle head produces a wide, ground-hugging disk dome with heavy base accumulation.";
+                } else if (T < -15) {
+                    morphId = 7; morphName = "7. SUB-ZERO CRISTALLINE CITADEL";
+                    morphDesc = "Deep freezing conditions trigger multi-pointed crystalline spires and deep ribs.";
+                } else if (currentSite.id === 'kenya') {
+                    morphId = 15; morphName = "15. EQUATORIAL HIGH-ALTITUDE NEEDLE";
+                    morphDesc = "Equatorial extreme diurnal cycling creates a razor-sharp vertical pinnacle.";
+                } else {
+                    morphId = 1; morphName = "1. HIGH-PLATEAU CLASSIC SPIRE";
+                    morphDesc = "Standard laminar freeze accretion under balanced atmospheric conditions.";
+                }
+            } else {
+                if (T > 12) {
+                    morphId = 4; morphName = "4. COLLAPSED THERMAL ERODED CORE";
+                    morphDesc = "Severe ambient warmth causes deep thermal erosion cavities and collapse.";
+                } else if (T > 6) {
+                    morphId = 12; morphName = "12. SUMMER REMNANT LOW MOUND";
+                    morphDesc = "Late summer melting shrinks the stupa down into an eroded, dense ice stump.";
+                } else {
+                    morphId = 8; morphName = "8. SPRING HOLLOW CAVERN SHELL";
+                    morphDesc = "Meltwater runoff carves deep internal caverns and uneven hollow walls.";
+                }
+            }
+
+            document.getElementById('viewportTag').innerHTML = `PREDICTED FORM: ${morphName}<br>TERRAIN: ${currentSite.topo.toUpperCase()} | DYNAMICS: ${isMeltingPhase ? 'THERMAL RUNOFF (NO SPRAY)' : '100% ACCRETION'}`;
+            document.getElementById('morphologyDescBox').innerHTML = `MORPHOLOGY ID #${morphId}: ${morphName}<br>Status: ${isMeltingPhase ? 'Thermal Decay Mode' : 'Freezing Accumulation Mode'}.<br>${morphDesc}`;
+
+            updateStupa3DMorphology(stupaHeight, stupaRadius, isMeltingPhase, v, thermalHue, morphId);
         }
 
-        updateFromSelect();
+        function updateStupa3DMorphology(height, radius, isMelting, windSpeed, thermalHue, morphId) {
+            while(stupaGroup.children.length > 0) { 
+                const obj = stupaGroup.children[0];
+                stupaGroup.remove(obj); 
+                if (obj.geometry) obj.geometry.dispose();
+            }
 
-        // Pomalá rotace celého světa
+            // Central pipe structure
+            const pipeGeo = new THREE.CylinderGeometry(0.25, 0.35, height * 1.15, 12);
+            const pipeMat = new THREE.MeshBasicMaterial({ color: 0x111111, wireframe: true });
+            centralPipeMesh = new THREE.Mesh(pipeGeo, pipeMat);
+            centralPipeMesh.position.y = (height * 1.15) / 2 - 4;
+            stupaGroup.add(centralPipeMesh);
+
+            // COLOR PALETTE: Cyan/White (0.0) -> Purple (0.35) -> Crimson Red (1.0)
+            const iceColor = new THREE.Color();
+            if (thermalHue < 0.35) {
+                iceColor.setHSL(0.5 - (thermalHue / 0.35) * 0.15, 0.4, 0.95 - thermalHue * 0.2);
+            } else {
+                const redProgress = (thermalHue - 0.35) / 0.65;
+                iceColor.setHSL(0.35 - redProgress * 0.35, 0.85, 0.55 - redProgress * 0.1);
+            }
+
+            // High-shine, smooth organic ice material
+            const iceMat = new THREE.MeshPhongMaterial({
+                color: iceColor,
+                transparent: true,
+                opacity: isMelting ? 0.88 : 0.82,
+                shininess: 120,
+                specular: 0xffffff,
+                flatShading: false
+            });
+
+            const wireColor = isMelting ? new THREE.Color(0xff0000) : new THREE.Color(0x000000);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: wireColor,
+                wireframe: true,
+                transparent: true,
+                opacity: isMelting ? 0.35 : 0.20
+            });
+
+            // HIGH-RESOLUTION CYLINDRICAL MESH FOR SMOOTH THERMODYNAMIC DEFORMATION
+            const radialSegs = 72;
+            const heightSegs = 64;
+            const stupaGeo = new THREE.CylinderGeometry(radius * 0.05, radius, height, radialSegs, heightSegs);
+            stupaGeo.translate(0, height / 2 - 4, 0);
+
+            const posAttr = stupaGeo.attributes.position;
+            const T = parseFloat(document.getElementById('tempSlider').value);
+            const dh = parseFloat(document.getElementById('headSlider').value);
+
+            // UNIQUE MATHEMATICAL ARCHITECTURAL SIGNATURE PER SITE (1-15)
+            const siteIndex = SITES.findIndex(s => s.id === currentSite.id) + 1;
+
+            for (let i = 0; i < posAttr.count; i++) {
+                let x = posAttr.getX(i);
+                let y = posAttr.getY(i);
+                let z = posAttr.getZ(i);
+
+                const normY = Math.max(0.001, (y + 4) / height); // 0 at ground, 1 at nozzle top
+                const angle = Math.atan2(z, x);
+
+                if (isMelting) {
+                    // --- THERMODYNAMIC ABLATION & MELT RUNOFF FORMULA ---
+                    const meltIntensity = Math.max(0.1, T > 0 ? T : 1.5);
+                    const solarAspect = Math.cos(angle - Math.PI / 4) * 0.35 * meltIntensity;
+                    const gravitySlump = Math.pow(1 - normY, 0.5) * (1.2 + meltIntensity * 0.1);
+                    const waterCarving = Math.sin(angle * 6 + normY * 8) * 0.15 * meltIntensity;
+
+                    const headEffect = Math.pow(dh / 200, 0.4);
+                    const windDrift = (windSpeed * 0.04) * Math.pow(normY, 1.2);
+
+                    let rFactor = (gravitySlump + solarAspect + waterCarving) * headEffect;
+                    rFactor *= Math.max(0.2, 1 - normY * 0.35 * meltIntensity);
+
+                    x = x * rFactor + windDrift;
+                    z = z * rFactor;
+                    y -= normY * meltIntensity * 0.18;
+                } else {
+                    // --- RIGOROUS MATHEMATICAL & PHYSICAL WEATHER ARCHITECTURE ---
+                    // 1. Fluid Dynamic Pressure & Nozzle Jet Profile (Driven by Pipe Head Δh)
+                    const headPressureNorm = dh / 180;
+                    const parabolicSpray = Math.pow(normY, 0.25) * Math.pow(1 - normY, 0.55) * (2.1 / Math.sqrt(headPressureNorm));
+                    const basalSpreadSkirt = Math.pow(1 - normY, 2.5) * (1.6 / headPressureNorm);
+
+                    // 2. Aerodynamic Wind Shear & Vortex Shedding (Driven by Wind Velocity v)
+                    const windDrift = (windSpeed * 0.09) * Math.pow(normY, 1.6);
+                    const windwardFlattening = Math.cos(angle) > 0 
+                        ? (1 - (windSpeed * 0.015) * Math.cos(angle)) 
+                        : (1 + (windSpeed * 0.022) * Math.abs(Math.cos(angle)));
+
+                    // 3. Mathematical Site-Specific Harmonic Signatures (Fourier Series & Trigonometric Tessellation)
+                    let siteHarmonic = 1.0;
+                    if (siteIndex === 1) {
+                        // Leh: Organ-Pipe Vertical Flutes (High-frequency harmonic ribs)
+                        siteHarmonic += Math.sin(angle * 12) * 0.18 * (1 - normY);
+                    } else if (siteIndex === 2) {
+                        // Zermatt: Jagged Alpine Asymmetric Wedge (Bilateral sharp ridge)
+                        siteHarmonic += Math.abs(Math.cos(angle * 3)) * 0.32 * Math.sin(normY * Math.PI);
+                    } else if (siteIndex === 3) {
+                        // Huaraz: Terraced Equatorial Crown (Multi-tier ring plateaus)
+                        siteHarmonic += Math.sin(normY * Math.PI * 7) * 0.22 * Math.cos(angle * 4);
+                    } else if (siteIndex === 4) {
+                        // Reykjavik: Volcanic Crater Basin Flared Shield
+                        siteHarmonic += (1.5 - normY) * Math.sin(angle * 5) * 0.25;
+                    } else if (siteIndex === 5) {
+                        // Almaty: Stepped Pagoda Ring Prisms
+                        siteHarmonic += Math.floor(normY * 6) % 2 === 0 ? 0.28 : -0.15;
+                    } else if (siteIndex === 6) {
+                        // Banff: Twin-Tower U-Valley Bifurcated Pylon
+                        siteHarmonic += Math.cos(angle * 2) * 0.35 * Math.pow(normY, 0.5);
+                    } else if (siteIndex === 7) {
+                        // Everest: Razor-Sharp Himalayan Needle Spire
+                        siteHarmonic += Math.sin(angle * 9) * 0.12 * Math.pow(normY, 1.5);
+                    } else if (siteIndex === 8) {
+                        // Nagano: Bulbous Snow-Basin Apron
+                        siteHarmonic += Math.sin(normY * Math.PI * 3) * 0.26 * Math.cos(angle * 6);
+                    } else if (siteIndex === 9) {
+                        // Gulmarg: Staggered Crystalline Crown
+                        siteHarmonic += Math.sin(angle * 8 + normY * 12) * 0.20;
+                    } else if (siteIndex === 10) {
+                        // Cortina: Faceted Limestone Monolith Prism
+                        siteHarmonic += Math.abs(Math.sin(angle * 4)) * 0.28;
+                    } else if (siteIndex === 11) {
+                        // Bariloche: Wind-Sculpted Helical Blade
+                        siteHarmonic += Math.sin(angle * 3 + normY * 5) * 0.30;
+                    } else if (siteIndex === 12) {
+                        // Ushuaia: Low Subpolar Broad Dome
+                        siteHarmonic += Math.sin(normY * Math.PI * 4) * 0.18;
+                    } else if (siteIndex === 13) {
+                        // Gulmit: Terraced Gorge Ziggurat
+                        siteHarmonic += Math.sin(normY * Math.PI * 8) * 0.25 * Math.cos(angle * 5);
+                    } else if (siteIndex === 14) {
+                        // Mount Kenya: Equatorial Star-Prism Pillar
+                        siteHarmonic += Math.sin(angle * 5) * 0.32 * Math.sin(normY * Math.PI);
+                    } else {
+                        // Quito: Inter-Andean Sculpted Crown
+                        siteHarmonic += Math.cos(angle * 6) * 0.20 * (1 - normY);
+                    }
+
+                    const subZeroFactor = Math.abs(Math.min(0, T)) / 10;
+                    const accretionRipples = Math.sin(normY * Math.PI * 12) * 0.07 * subZeroFactor;
+
+                    const radiusScale = (parabolicSpray + basalSpreadSkirt + 0.25) * siteHarmonic * (1 + accretionRipples) * windwardFlattening;
+
+                    x = x * radiusScale + windDrift;
+                    z = z * radiusScale;
+                }
+
+                posAttr.setXYZ(i, x, y, z);
+            }
+
+            stupaGeo.computeVertexNormals();
+
+            const mesh = new THREE.Mesh(stupaGeo, iceMat);
+            const wire = new THREE.Mesh(stupaGeo, wireMat);
+            stupaGroup.add(mesh);
+            stupaGroup.add(wire);
+        }
+
+        function updateParticleSystem(stupaHeight, isMelting, windSpeed) {
+            const pipeTopY = stupaHeight * 1.15 - 4;
+            const positions = particlesMesh.geometry.attributes.position.array;
+
+            if (isMelting) {
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    positions[i * 3 + 1] = -500;
+                    particleVelocities[i].life = 0;
+                }
+            } else {
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    let p = particleVelocities[i];
+
+                    if (p.life <= 0) {
+                        p.life = 60 + Math.random() * 40;
+                        positions[i * 3] = (Math.random() - 0.5) * 0.5;
+                        positions[i * 3 + 1] = pipeTopY;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+
+                        const angle = Math.random() * Math.PI * 2;
+                        const spread = 0.15 + Math.random() * 0.2;
+                        p.x = Math.cos(angle) * spread + (windSpeed * 0.02);
+                        p.y = 0.4 + Math.random() * 0.3;
+                        p.z = Math.sin(angle) * spread;
+                    } else {
+                        positions[i * 3] += p.x;
+                        positions[i * 3 + 1] += p.y;
+                        positions[i * 3 + 2] += p.z;
+
+                        p.y -= 0.015;
+                        p.life--;
+
+                        if (positions[i * 3 + 1] < -4) {
+                            p.life = 0;
+                        }
+                    }
+                }
+            }
+            particlesMesh.geometry.attributes.position.needsUpdate = true;
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            if (crystalMesh && crystalWire) {
-                crystalMesh.rotation.y += 0.004;
-                crystalWire.rotation.y += 0.004;
-            }
-            renderer.render(scene, camera);
-        }
-        animate();
 
-        window.addEventListener('resize', () => {
-            const w = container.clientWidth;
-            const h = container.clientHeight;
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
+            if (controls) controls.update();
+
+            const T = parseFloat(document.getElementById('tempSlider').value);
+            const month = parseInt(document.getElementById('monthSlider').value);
+            const dh = parseFloat(document.getElementById('headSlider').value);
+            const v = parseFloat(document.getElementById('windSlider').value);
+
+            const isMeltingPhase = (T > 0 || month === 4 || month === 5 || month === 6 || month === 7 || month === 8 || month === 9);
+            const fountainHeight = (dh * 0.11) * (1 - v * 0.006);
+            let stupaHeight = Math.max(4, fountainHeight * (1 - Math.max(0, T) * 0.075));
+
+            if (isMeltingPhase) {
+                const meltDeg = Math.max(1, T > 0 ? T : 2);
+                stupaHeight *= Math.max(0.15, 1 - meltDeg * 0.09);
+            }
+
+            updateParticleSystem(stupaHeight, isMeltingPhase, v);
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function zoomIn() {
+            if (camera) camera.position.multiplyScalar(0.85);
+        }
+
+        function zoomOut() {
+            if (camera) camera.position.multiplyScalar(1.15);
+        }
+
+        function toggleRotation() {
+            autoRotate = !autoRotate;
+            if (controls) controls.autoRotate = autoRotate;
+            const btn = document.getElementById('rotBtn');
+            if (btn) btn.textContent = `ROT: ${autoRotate ? 'ON' : 'OFF'}`;
+        }
+
+        function resetView() {
+            if (camera && controls) {
+                camera.position.set(70, 45, 90);
+                controls.target.set(0, 10, 0);
+                controls.update();
+            }
+        }
+
+        window.addEventListener('load', () => {
+            populateSiteDropdown();
+            initMap();
+            init3D();
         });
     </script>
 </body>
